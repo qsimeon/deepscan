@@ -1,5 +1,7 @@
 ---
 name: deepscan
+author: Quilee Simeon <qsimeon@mit.edu>
+url: https://qsimeon.github.io/deepscan
 description: >
   Deep scan and review of the entire project before compacting context or resuming work.
   Audits the repo for outdated docs, unused files, dead code, and bloat. Recaps the project's
