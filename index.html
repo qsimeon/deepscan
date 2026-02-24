@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>deepscan — Project Audit Skill for Claude Code</title>
+  <meta name="description" content="A Claude Code skill that performs deep project audits before context compaction or session resumption, creating clear handoff documentation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2a;
+      --text: #e0e0ea;
+      --muted: #6a6a7a;
+      --accent: #4ade80;
+      --accent-hover: #6ee7a0;
+      --accent-dim: rgba(74, 222, 128, 0.1);
+      --code-bg: #0e0e16;
+      --gold: #c8a84b;
+      --red: #f87171;
+      --blue: #60a5fa;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; transition: color 0.2s; }
+    a:hover { color: var(--accent-hover); }
+    .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border: 1px solid var(--accent);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, var(--text), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 540px;
+      margin: 0 auto 32px;
+    }
+    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 600; transition: all 0.2s;
+    }
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-primary:hover { background: var(--accent-hover); color: var(--bg); transform: translateY(-1px); }
+    .btn-outline { border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    section { padding: 48px 0; border-bottom: 1px solid var(--border); }
+    section:last-of-type { border-bottom: none; }
+    h2 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.4rem;
+      margin-bottom: 20px;
+    }
+    h2 .hash { color: var(--accent); margin-right: 8px; }
+    p + p { margin-top: 12px; }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      overflow-x: auto;
+      margin: 16px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .inline-code {
+      background: var(--surface);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+    }
+    .comment { color: var(--muted); }
+    .flag { color: var(--accent); }
+    .status { color: var(--gold); }
+
+    .phase-grid {
+      display: grid;
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .phase {
+      padding: 20px;
+      background: var(--surface);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+    }
+    .phase-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .phase strong { color: var(--text); }
+    .phase p { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+
+    .status-table {
+      width: 100%;
+      margin: 16px 0;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .status-table th, .status-table td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .status-table th {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .output-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    .output-box h3 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    footer {
+      padding: 40px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .sibling { margin-top: 12px; padding: 12px 16px; background: var(--accent-dim); border-radius: 8px; font-size: 0.9rem; }
+    .sibling a { font-weight: 600; }
+
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 1.8rem; }
+      .hero { padding: 48px 0 40px; }
+      section { padding: 32px 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header class="hero">
+    <div class="hero-badge">Claude Code Skill</div>
+    <h1>deepscan</h1>
+    <p>A project audit skill that creates clear handoff documentation before context compaction or session resumption.</p>
+    <div class="hero-actions">
+      <a href="https://github.com/qsimeon/deepscan" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        View on GitHub
+      </a>
+      <a href="#install" class="btn btn-outline">Install</a>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="hash">#</span> The Problem</h2>
+    <p>Claude Code sessions have limited context windows. When you compact or start a new session, you lose the thread of where things stand. What was finished? What's half-done? What was the user trying to achieve? You end up re-exploring the same codebase, missing context, and sometimes duplicating or undoing previous work.</p>
+    <p>Even within a single session, it's easy to lose track of a project's overall state as you bounce between files, fix bugs, and add features.</p>
+  </section>
+
+  <section>
+    <h2><span class="hash">#</span> What deepscan Does</h2>
+    <p><strong>deepscan</strong> is a Claude Code skill that performs a structured five-phase audit of your project. Think of it like a senior engineer doing an end-of-sprint review: walking the repo, checking what shipped, what's stale, and writing up a clear handoff document.</p>
+    <p>The output is a <code class="inline-code">STATUS.md</code> file and a conversational recap that makes it trivial to resume work — whether after a compact, in a new session, or by a different person picking up the project.</p>
+  </section>
+
+  <section>
+    <h2><span class="hash">#</span> The Five Phases</h2>
+    <div class="phase-grid">
+      <div class="phase">
+        <div class="phase-num">Phase 1 — Understand Intent</div>
+        <strong>Read CLAUDE.md, README, package manifests, git log, and conversation history</strong>
+        <p>Synthesize what the project is supposed to be and what the high-level goals are.</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 2 — Audit the Repository</div>
+        <strong>Scan for stale docs, unused files, dead code, and inconsistencies</strong>
+        <p>Systematic check with file paths: outdated README sections, duplicate files, commented-out blocks, naming mismatches.</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 3 — Assess Progress</div>
+        <strong>Categorize every feature and goal by status</strong>
+        <p>Complete, In Progress, Pending (Claude), Pending (Human), or Unclear. With specific reasons for each.</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 4 — Generate STATUS.md</div>
+        <strong>Write a structured handoff document in the project root</strong>
+        <p>Overview, progress table, what's left, cleanup recommendations, and priorities for next session.</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 5 — Present and Discuss</div>
+        <strong>Conversational recap with confirmation before any changes</strong>
+        <p>Summarize findings, ask before deleting anything, offer to update stale documentation.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="hash">#</span> Example Output</h2>
+    <div class="output-box">
+      <h3>STATUS.md</h3>
+      <pre><span class="comment"># Project Status — my-app</span>
+<span class="comment">> Last reviewed: 2026-02-24</span>
+<span class="comment">> Reviewed by: Claude (deep scan)</span>
+
+<span class="flag">## Progress Summary</span>
+| Area              | Status | Notes              |
+|-------------------|--------|--------------------|
+| Auth system       | <span class="status">✅</span>     | JWT + refresh flow |
+| API endpoints     | <span class="status">🔧</span>     | 8/12 done          |
+| Dashboard UI      | <span class="status">⏳</span>     | Claude can do      |
+| Payment webhooks  | <span class="status">👤</span>     | Needs Stripe keys  |
+| Test coverage     | <span class="status">❓</span>     | No tests yet       |
+
+<span class="flag">## Cleanup Recommendations</span>
+<span class="comment">### Safe to Delete</span>
+- src/old-auth.ts — replaced by src/auth/
+- .babelrc — project uses SWC now</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="hash">#</span> Trigger Phrases</h2>
+    <p>Just say any of these in a Claude Code session:</p>
+    <pre><span class="flag">/deepscan</span>
+"review the project"
+"what's the state of things"
+"recap where we are"
+"status check"
+"what's left to do"
+"audit the repo"
+"pre-compact review"</pre>
+  </section>
+
+  <section id="install">
+    <h2><span class="hash">#</span> Install</h2>
+    <pre><span class="comment"># Clone the repo</span>
+git clone https://github.com/qsimeon/deepscan.git
+
+<span class="comment"># Copy to your Claude skills directory</span>
+cp -r deepscan ~/.claude/skills/deepscan
+
+<span class="comment"># Or symlink it</span>
+ln -s $(pwd)/deepscan ~/.claude/skills/deepscan</pre>
+    <p>Then invoke it from any Claude Code session with <code class="inline-code">/deepscan</code>.</p>
+    <div class="sibling">
+      Also check out <a href="https://qsimeon.github.io/session-merge">session-merge</a> — a companion skill for merging split Claude Code sessions.
+    </div>
+  </section>
+
+  <footer>
+    <p>Built by <a href="https://qsimeon.github.io">Quilee Simeon</a>. MIT Licensed.</p>
+    <p style="margin-top: 8px;">Made with Claude Code, naturally.</p>
+  </footer>
+</div>
+
+</body>
+</html>
