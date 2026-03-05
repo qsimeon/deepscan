@@ -127,6 +127,19 @@ Write a STATUS.md file in the project root (or update it if one exists). Use thi
 {2-3 bullet priorities for what to work on next, in order}
 ```
 
+### Phase 4b: Add STATUS.md to .gitignore
+
+If the project is a git repo (i.e., has a `.git/` directory), check whether `STATUS.md` is already listed in `.gitignore`. If it isn't, add it. STATUS.md is a transient working document for session handoff — it shouldn't be committed to the repository.
+
+```bash
+# Only if .git/ exists and STATUS.md isn't already ignored
+if [ -d .git ] && ! grep -qxF 'STATUS.md' .gitignore 2>/dev/null; then
+  echo 'STATUS.md' >> .gitignore
+fi
+```
+
+If there's no `.gitignore` file yet, create one with `STATUS.md` as its first entry.
+
 ### Phase 5: Present and Discuss
 
 After generating STATUS.md:
